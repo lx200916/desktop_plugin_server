@@ -1,6 +1,8 @@
+// From lujjjh:ilyrics
 use std::ptr::null;
 use std::ptr::null_mut;
 
+use anyhow::Result;
 use bindings::Windows::Win32::Foundation::*;
 use bindings::Windows::Win32::Graphics::Direct2D::*;
 use bindings::Windows::Win32::Graphics::Direct3D11::*;
@@ -10,6 +12,7 @@ use bindings::Windows::Win32::System::Com::*;
 use bindings::Windows::Win32::UI::Animation::*;
 use bindings::Windows::Win32::UI::WindowsAndMessaging::*;
 use windows::*;
+use crate::ui::{OSError, OSErrorS};
 
 pub fn get_desktop_dpi() -> Result<(f32, f32)> {
     let d2d_factory = create_d2d_factory()?;
@@ -27,7 +30,7 @@ fn check_result(result: BOOL) -> Result<()> {
     if result.as_bool() {
         Ok(())
     } else {
-        Err(HRESULT::from_thread().into())
+        Err(OSError(HRESULT::from_thread().into()).into())
     }
 }
 
@@ -120,7 +123,7 @@ pub fn create_swap_chain(hwnd: HWND, device: &IDXGIDevice) -> Result<IDXGISwapCh
         AlphaMode: DXGI_ALPHA_MODE_PREMULTIPLIED,
         Flags: 0,
     };
-    unsafe { dxgi_factory.CreateSwapChainForComposition(device, &swap_chain_desc, None) }
+    unsafe { dxgi_factory.CreateSwapChainForComposition(device, &swap_chain_desc, None).map_err(|e| OSErrorS(e).into()) }
 }
 
 pub fn create_bitmap_from_swap_chain<'a>(
@@ -149,18 +152,54 @@ pub fn create_dwrite_factory() -> Result<IDWriteFactory2> {
     unsafe {
         DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, &IDWriteFactory2::IID)
             .unwrap()
-            .cast::<IDWriteFactory2>()
+            .cast::<IDWriteFactory2>().map_err(|e| OSErrorS(e).into())
     }
 }
 
 pub fn create_animation_manager() -> Result<IUIAnimationManager> {
-    unsafe { CoCreateInstance(&UIAnimationManager, None, CLSCTX_INPROC_SERVER) }
+    unsafe { CoCreateInstance(&UIAnimationManager, None, CLSCTX_INPROC_SERVER).map_err(|e| OSErrorS(e).into()) }
 }
 
 pub fn create_animation_timer() -> Result<IUIAnimationTimer> {
-    unsafe { CoCreateInstance(&UIAnimationTimer, None, CLSCTX_INPROC_SERVER) }
+    unsafe { CoCreateInstance(&UIAnimationTimer, None, CLSCTX_INPROC_SERVER).map_err(|e| OSErrorS(e).into()) }
 }
 
 pub fn create_animation_transition_library() -> Result<IUIAnimationTransitionLibrary> {
-    unsafe { CoCreateInstance(&UIAnimationTransitionLibrary, None, CLSCTX_INPROC_SERVER) }
+    unsafe { CoCreateInstance(&UIAnimationTransitionLibrary, None, CLSCTX_INPROC_SERVER).map_err(|e| OSErrorS(e).into()) }
 }
+
+// pub fn run_message_loop( window:&mut LWindow, receiver:&Receiver<String>) -> () {
+//     unsafe {
+//         let mut msg = MSG::default();
+//
+//         loop {
+//             if PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
+//                 if msg.message == WM_QUIT {
+//                     break;
+//                 }
+//                 TranslateMessage(&msg);
+//                 DispatchMessageW(&msg);
+//             }
+//             if let Ok(message) = receiver.try_recv(){
+//                 println!("MSG: {:?}", message);
+//                 window.update_lines(message);
+//             }
+//
+//         }
+//     }
+// }
+
+// pub fn postMessage(lyric_hwnd: HWND, i: i32) {
+//     let param: CString = CString::new(format!("##{}", i)).unwrap();
+//
+//     println!("{:?}", param);
+//     println!("{:?}", param.as_ptr());
+//     unsafe {
+//         SendMessageW(
+//             lyric_hwnd,
+//             WM_COPYDATA,
+//             WPARAM(HTCAPTION as _),
+//             LPARAM(param.into_raw() as isize),
+//         );
+//     }
+// }
