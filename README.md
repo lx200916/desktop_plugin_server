@@ -21,3 +21,5 @@ text_color = [
 # Font Size in dp Unit.
 font_size = 24
 ```
+> **Note**
+> Note that you need to restart plugin or music player to make config update.
