@@ -1,5 +1,6 @@
 mod ui;
 mod utils;
+mod config;
 
 use bindings::Windows::Win32::Foundation::*;
 use bindings::Windows::Win32::Storage::FileSystem::*;
@@ -13,12 +14,23 @@ use std::ptr::{null, null_mut};
 use std::thread::sleep;
 use std::time::Duration;
 use std::{mem, thread};
+use confy::ConfyError;
 use ui::init;
-
+use crate::config::Config;
+const APPNAME: &str = "Cider Desktop Plugin";
+fn get_config()->Config{
+    let r: std::result::Result<Config, ConfyError> =confy::load(APPNAME, None);
+    match r {
+        Ok(config)=>config,
+        _ => {confy::store(APPNAME,None,Config::default());Config::default()}
+    }
+}
 fn main() {
     init().unwrap();
+    let mut config = get_config();
+    config.check();
     // Name Pipe `lyrics_pipe`
-    let mut window = ui::LWindow::create_window().unwrap();
+    let mut window = ui::LWindow::create_window(config).unwrap();
     window.show().unwrap();
     unsafe {
         let mut fd = WIN32_FIND_DATAW::default();
@@ -40,6 +52,8 @@ fn main() {
             }
         }
     }
+
+
     loop {
         let mut h_pipe = unsafe {
             CreateNamedPipeW(
@@ -57,7 +71,6 @@ fn main() {
             println!("Connected");
         }
         let (tx, rx) = mpsc::channel();
-
         thread::spawn(move || {
             loop {
                 unsafe {

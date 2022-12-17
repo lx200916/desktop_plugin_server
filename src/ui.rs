@@ -24,6 +24,8 @@ use std::ptr::{null, null_mut};
 use std::time::Duration;
 use windows::HRESULT;
 use windows::*;
+use crate::config::Config;
+
 pub fn init() -> Result<()> {
     unsafe {
         SetProcessDPIAware();
@@ -31,25 +33,33 @@ pub fn init() -> Result<()> {
     }
     Ok(())
 }
+
 pub struct OSError(pub HRESULT);
+
 impl std::error::Error for OSError {}
+
 impl Display for OSError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0.message())
     }
 }
+
 impl Debug for OSError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0.message())
     }
 }
+
 pub struct OSErrorS(pub Error);
+
 impl std::error::Error for OSErrorS {}
+
 impl Display for OSErrorS {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0.message())
     }
 }
+
 impl Debug for OSErrorS {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0.message())
@@ -84,13 +94,16 @@ pub struct Resources {
     line_next_offset: IUIAnimationVariable,
     line_next_opacity: IUIAnimationVariable,
 }
+
 // #[derive(Debug)]
 pub struct LWindow {
     pub(crate) hwnd: HWND,
     resources: OnceCell<Resources>,
     last_line: Option<String>,
     line: Option<String>,
+    config: Config,
 }
+
 fn get_instance() -> HINSTANCE {
     static INSTANCE: OnceCell<HINSTANCE> = OnceCell::new();
     *INSTANCE.get_or_init(|| unsafe { GetModuleHandleW(None) })
@@ -156,7 +169,7 @@ impl LWindow {
         unsafe { PostQuitMessage(0) };
         LRESULT(1)
     }
-    pub fn create_window() -> Result<Self> {
+    pub fn create_window(config: Config) -> Result<Self> {
         let (_scale_x, scale_y) = get_scale_factor()?;
         let mut rect = get_workarea_rect()?;
         rect.top = rect.bottom - (WINDOW_HEIGHT as f32 * scale_y).round() as i32;
@@ -189,6 +202,7 @@ impl LWindow {
             resources: OnceCell::new(),
             last_line: None,
             line: None,
+            config,
         })
     }
 
@@ -244,7 +258,7 @@ impl LWindow {
                               skip_if_hidden: bool,
                               acceleration_ratio: f64,
                               deceleration_ratio: f64|
-         -> Result<()> {
+                              -> Result<()> {
             if initial_value.is_none() && unsafe { variable.GetFinalValue() }? == final_value {
                 return Ok(());
             }
@@ -272,7 +286,7 @@ impl LWindow {
                                       initial_value: Option<f64>,
                                       final_value: f64,
                                       skip_if_hidden: bool|
-         -> Result<()> {
+                                      -> Result<()> {
             _do_transition(
                 variable,
                 duration,
@@ -288,7 +302,7 @@ impl LWindow {
                                     initial_value: Option<f64>,
                                     final_value: f64,
                                     skip_if_hidden: bool|
-         -> Result<()> {
+                                    -> Result<()> {
             _do_transition(
                 variable,
                 duration,
@@ -363,7 +377,7 @@ impl LWindow {
                         DWRITE_FONT_WEIGHT_NORMAL,
                         DWRITE_FONT_STYLE_NORMAL,
                         DWRITE_FONT_STRETCH_NORMAL,
-                        24.,
+                        self.config.font_size as f32,
                         "",
                     )?
                     .cast()
@@ -485,10 +499,10 @@ impl LWindow {
                 None,
             );
             brush.SetColor(&D2D1_COLOR_F {
-                r: 0.,
-                g: 0.,
-                b: 0.,
-                a: 0.5,
+                r: self.config.bg_color[0],
+                g: self.config.bg_color[1],
+                b: self.config.bg_color[2],
+                a: self.config.bg_color[3],
             });
             let bg_width = bg_width.GetValue()? as f32;
             let bg_height = bg_height.GetValue()? as f32;
@@ -609,16 +623,14 @@ impl LWindow {
         let Resources { dc, brush, .. } = self.get_or_init_resources()?;
         let text_layout =
             self.create_text_layout(text, rect.right - rect.left, rect.bottom - rect.top)?;
-        // println!("draw{:?}", text);
-        // println!("width:{:?}", rect.right - rect.left);
-        // println!("width:{:?}", rect.bottom - rect.top);
+
 
         unsafe {
             brush.SetColor(&D2D1_COLOR_F {
-                r: 1.,
-                g: 1.,
-                b: 1.,
-                a: 1.,
+                r: self.config.text_color[0],
+                g: self.config.text_color[1],
+                b: self.config.text_color[2],
+                a: self.config.text_color[3],
             });
             dc.DrawTextLayout(
                 &D2D_POINT_2F {
@@ -643,6 +655,7 @@ impl LWindow {
         unsafe { text_layout.GetMetrics() }.map_err(|e| e.into())
     }
 }
+
 pub unsafe fn get_window_instance<'a>(hwnd: HWND) -> Option<&'a mut LWindow> {
     let window_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA);
     if window_ptr == 0 {
@@ -681,6 +694,7 @@ impl UIAnimationTimerEventHandler {
         S_OK
     }
 }
+
 unsafe extern "system" fn window_proc(
     hwnd: HWND,
     msg: u32,
