@@ -102,6 +102,7 @@ pub struct LWindow {
     last_line: Option<String>,
     line: Option<String>,
     config: Config,
+    movable: bool,
 }
 
 fn get_instance() -> HINSTANCE {
@@ -146,6 +147,7 @@ impl LWindow {
 
     pub fn window_proc(&mut self, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         match msg {
+            WM_LBUTTONDOWN=>unsafe{SendMessageW(hwnd, WM_NCLBUTTONDOWN, WPARAM(HTCAPTION as usize), LPARAM(0));LRESULT(0)},
             WM_COPYDATA => unsafe { self.on_update(hwnd, msg, wparam, lparam) },
             WM_DESTROY => self.on_destroy(hwnd, msg, wparam, lparam),
             _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
@@ -202,7 +204,7 @@ impl LWindow {
             resources: OnceCell::new(),
             last_line: None,
             line: None,
-            config,
+            config,movable:false
         })
     }
 
@@ -217,10 +219,37 @@ impl LWindow {
         // self.set_lyrics_timer()?;
         Ok(())
     }
+    pub fn change_movable(&mut self){
+        let movableStyle = WINDOW_EX_STYLE(
+            WS_EX_NOREDIRECTIONBITMAP.0
+                | WS_EX_TRANSPARENT.0
+                | WS_EX_TOPMOST.0
+                | WS_EX_TOOLWINDOW.0,
+        );
+        let fixedStyle = WINDOW_EX_STYLE(
+            WS_EX_NOREDIRECTIONBITMAP.0
+                | WS_EX_LAYERED.0
+                | WS_EX_TRANSPARENT.0
+                | WS_EX_TOPMOST.0
+                | WS_EX_TOOLWINDOW.0,
+        );
+        self.movable=!self.movable;
+        if self.movable {
+
+            unsafe { SetWindowLongPtrW(self.get_hwnd(), GWL_EXSTYLE, movableStyle.0 as _) };
+        }else {
+            unsafe { SetWindowLongPtrW(self.get_hwnd(), GWL_EXSTYLE, fixedStyle.0 as _) };
+        }
+
+    }
     pub fn update_lines(&mut self, lyrics: String) -> Result<()> {
         // println!("lyrics： {:?}", lyrics);
         if !lyrics.is_empty() {
             let line_current = lyrics;
+            if line_current.starts_with("$$##NMSL") {
+                self.change_movable();
+                return Ok(());
+            }
             // let line_last =self.last_line.as_ref();
             self.last_line = self.line.clone();
             self.schedule_transitions(Some(&line_current))?;
