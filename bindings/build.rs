@@ -18,5 +18,7 @@ fn main() {
         Windows::Win32::UI::Animation::*,
         Windows::Win32::UI::Shell::*,
         Windows::Win32::UI::WindowsAndMessaging::*,
+        Windows::UI::ViewManagement::*,
+        Windows::UI::Color,
     };
 }

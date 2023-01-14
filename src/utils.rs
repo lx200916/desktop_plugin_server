@@ -2,7 +2,7 @@
 use std::ptr::null;
 use std::ptr::null_mut;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use bindings::Windows::Win32::Foundation::*;
 use bindings::Windows::Win32::Graphics::Direct2D::*;
 use bindings::Windows::Win32::Graphics::Direct3D11::*;
@@ -11,6 +11,8 @@ use bindings::Windows::Win32::Graphics::Dxgi::*;
 use bindings::Windows::Win32::System::Com::*;
 use bindings::Windows::Win32::UI::Animation::*;
 use bindings::Windows::Win32::UI::WindowsAndMessaging::*;
+use bindings::Windows::UI::ViewManagement::*;
+use bindings::Windows::UI::Color;
 use windows::*;
 use crate::ui::{OSError, OSErrorS};
 
@@ -166,6 +168,23 @@ pub fn create_animation_timer() -> Result<IUIAnimationTimer> {
 
 pub fn create_animation_transition_library() -> Result<IUIAnimationTransitionLibrary> {
     unsafe { CoCreateInstance(&UIAnimationTransitionLibrary, None, CLSCTX_INPROC_SERVER).map_err(|e| OSErrorS(e).into()) }
+}
+pub fn get_accent_color()->Result<Color>{
+    let ui=UISettings::new();
+    if ui.is_ok(){
+        let ui=ui.unwrap();
+        let color=ui.GetColorValue(UIColorType::Accent);
+        if color.is_ok(){
+            let color=color.unwrap();
+            return Ok(color);
+        }else {
+            return Err(anyhow!("GetColorValue failed"));
+        }
+    }else {
+        return Err(anyhow!("UISettings failed"));
+    }
+
+
 }
 
 // pub fn run_message_loop( window:&mut LWindow, receiver:&Receiver<String>) -> () {
