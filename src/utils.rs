@@ -169,11 +169,11 @@ pub fn create_animation_timer() -> Result<IUIAnimationTimer> {
 pub fn create_animation_transition_library() -> Result<IUIAnimationTransitionLibrary> {
     unsafe { CoCreateInstance(&UIAnimationTransitionLibrary, None, CLSCTX_INPROC_SERVER).map_err(|e| OSErrorS(e).into()) }
 }
-pub fn get_accent_color()->Result<Color>{
+pub fn get_accent_color(lighter:bool)->Result<Color>{
     let ui=UISettings::new();
     if ui.is_ok(){
         let ui=ui.unwrap();
-        let color=ui.GetColorValue(UIColorType::Accent);
+        let color=if lighter{ui.GetColorValue(UIColorType::AccentLight2)}else {ui.GetColorValue(UIColorType::Accent)};
         if color.is_ok(){
             let color=color.unwrap();
             return Ok(color);
